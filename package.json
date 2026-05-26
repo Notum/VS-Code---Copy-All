@@ -1,0 +1,94 @@
+{
+  "name": "copy-all-from-terminal",
+  "displayName": "Copy All From Terminal",
+  "description": "One-click copy of the entire integrated terminal buffer (including scrollback) with configurable whitespace cleaning.",
+  "version": "0.1.0",
+  "publisher": "notum",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "terminal",
+    "clipboard",
+    "copy",
+    "scrollback",
+    "whitespace"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copyAllFromTerminal.copy",
+        "title": "Copy All From Terminal",
+        "category": "Terminal",
+        "icon": "$(copy)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "copyAllFromTerminal.copy"
+        }
+      ],
+      "terminal/title/context": [
+        {
+          "command": "copyAllFromTerminal.copy",
+          "group": "3_run"
+        }
+      ],
+      "terminal/context": [
+        {
+          "command": "copyAllFromTerminal.copy",
+          "group": "3_edit"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Copy All From Terminal",
+      "properties": {
+        "copyAllFromTerminal.trim": {
+          "type": "boolean",
+          "default": true,
+          "description": "Trim leading/trailing whitespace of the whole output block (applied last)."
+        },
+        "copyAllFromTerminal.removeLeadingSpaces": {
+          "type": "boolean",
+          "default": true,
+          "description": "Strip leading spaces and tabs from each line."
+        },
+        "copyAllFromTerminal.removeTrailingSpaces": {
+          "type": "boolean",
+          "default": true,
+          "description": "Strip trailing spaces and tabs from each line."
+        },
+        "copyAllFromTerminal.removeTrailingBlankLines": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove empty lines at the end of the output. The terminal buffer pads with many blank lines after the last prompt; this strips them."
+        },
+        "copyAllFromTerminal.collapseBlankLines": {
+          "type": "boolean",
+          "default": false,
+          "description": "Collapse runs of two or more blank lines into a single blank line (like `cat -s`)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
