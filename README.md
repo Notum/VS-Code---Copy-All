@@ -72,4 +72,4 @@ Works transparently over Remote-SSH, WSL, and Dev Containers. All the work is do
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see the `LICENSE` file shipped with the extension.
