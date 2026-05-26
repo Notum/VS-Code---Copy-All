@@ -65,11 +65,15 @@ export function clean(input: string, opts: CleanOptions): string {
 }
 
 // VS Code's extension API has no method to read the terminal buffer directly
-// (Terminal can sendText but not readText). The blessed workaround is to drive
-// the same UI commands the user would press by hand — selectAll + copySelection
-// — and read the result from the system clipboard. That's why we briefly
-// clobber the clipboard here; the *cleaned* terminal contents are the intended
-// final clipboard value, so we don't restore the previous value.
+// (Terminal can sendText but not readText), and there's no public API to ask
+// "does the terminal have a selection right now?" either. We work around both
+// by driving the same UI commands the user would press by hand and reading the
+// result from the system clipboard.
+//
+// Selection detection uses a sentinel: we write a unique marker, run
+// copySelection, and read the clipboard back. If it still equals the marker,
+// no selection was present (copySelection is a no-op without a selection).
+// Otherwise, the clipboard now holds the selected text.
 async function runCopy(): Promise<void> {
     const term = vscode.window.activeTerminal;
     if (!term) {
@@ -86,17 +90,34 @@ async function runCopy(): Promise<void> {
         // clicked the status bar item), show() guarantees correctness.
         term.show(true);
 
-        await vscode.commands.executeCommand('workbench.action.terminal.selectAll');
+        // Sentinel must be unguessable so we never confuse it with real content.
+        const sentinel = `__copyAllFromTerminal_sentinel_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
+        await vscode.env.clipboard.writeText(sentinel);
         await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+        let captured = await vscode.env.clipboard.readText();
 
-        const raw = await vscode.env.clipboard.readText();
-        const cleaned = clean(raw, readOptions());
+        // If copySelection didn't change the clipboard, there was no selection.
+        // Empty-string check defensively handles a terminal that returned ""
+        // (rare but observed in some shell-integration edge cases).
+        const hadSelection = captured !== sentinel && captured.length > 0;
+
+        if (!hadSelection) {
+            await vscode.commands.executeCommand('workbench.action.terminal.selectAll');
+            await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+            captured = await vscode.env.clipboard.readText();
+        }
+
+        const cleaned = clean(captured, readOptions());
 
         await vscode.env.clipboard.writeText(cleaned);
         await vscode.commands.executeCommand('workbench.action.terminal.clearSelection');
 
         const lineCount = cleaned.length === 0 ? 0 : cleaned.split('\n').length;
-        vscode.window.setStatusBarMessage(`Copied ${lineCount} line${lineCount === 1 ? '' : 's'} from terminal`, 3000);
+        const source = hadSelection ? 'selection' : 'full buffer';
+        vscode.window.setStatusBarMessage(
+            `Copied ${lineCount} line${lineCount === 1 ? '' : 's'} from ${source}`,
+            3000,
+        );
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Copy All From Terminal failed: ${msg}`);

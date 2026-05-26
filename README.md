@@ -29,6 +29,13 @@ Trigger the command in any of these ways:
 
 After the command runs, the cleaned terminal contents are on your clipboard and a brief status-bar message shows how many lines were copied.
 
+### Selection vs. full buffer
+
+- If you have **text selected** in the terminal when you trigger the command, only that selection is cleaned and copied. The status bar message ends with `from selection`.
+- If there is **no selection**, the extension falls back to copying the entire scrollback. The status bar message ends with `from full buffer`.
+
+The same five cleaning settings (`trim`, `removeLeadingSpaces`, etc.) apply in both modes.
+
 ## How it works (and a VS Code API limitation)
 
 The VS Code extension API offers `Terminal.sendText` to write to a terminal but provides **no way to read** terminal text. The blessed workaround is to drive the same UI commands the user would press by hand:
