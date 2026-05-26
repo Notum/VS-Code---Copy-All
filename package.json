@@ -2,7 +2,7 @@
   "name": "copy-all-from-terminal",
   "displayName": "Copy All From Terminal",
   "description": "One-click copy of the entire integrated terminal buffer (including scrollback) with configurable whitespace cleaning.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "notum",
   "license": "MIT",
   "engines": {
@@ -10,6 +10,10 @@
   },
   "categories": [
     "Other"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
   ],
   "keywords": [
     "terminal",
