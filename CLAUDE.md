@@ -4,9 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A VS Code extension ("Copy All From Terminal") that copies the entire integrated
-terminal buffer — or the current terminal selection — to the clipboard, applying
-configurable whitespace cleaning. Published as `notum.copy-all-from-terminal`.
+A VS Code extension ("Copy All From Terminal") that copies terminal text to the
+clipboard. Two commands:
+
+- `copyAllFromTerminal.copy` — copies the entire integrated terminal buffer (or
+  the current selection), applying configurable whitespace cleaning.
+- `copyAllFromTerminal.copyLastAnswer` — extracts just the last Claude Code answer
+  from the buffer. **This is what the status-bar item triggers.**
+
+Published as `notum.copy-all-from-terminal`.
 
 ## Commands
 
@@ -44,6 +50,21 @@ clipboard round-trip and sentinel dance.
 the desired end state, so the previous clipboard value is *not* restored. It is
 stashed in the module-level `previousClipboard` only so a future "restore
 previous clipboard" command could use it — do not remove that capture.
+
+**3. Last-answer extraction (`extractLastAnswer()`).** A pure function (exported
+for testing) that pulls the final Claude Code answer out of a raw buffer. Claude
+Code renders each turn as a `●` bullet (answer start) … `✻ <Verb> for <duration>`
+footer (e.g. `✻ Brewed for 1m 45s`, printed on completion). A streamed answer
+leaves many partial re-renders in scrollback, so the final, complete answer is
+the slice from the **last** `●` bullet to the **last** footer. The function finds
+the last footer line (`FOOTER_RE` matches the *structure* — leading spinner glyph,
+then `<word> for <digit>` — not a specific glyph, and excludes `●`/`❯`/`⎿` so
+answer content isn't mistaken for a footer), takes the last bullet before it,
+strips the leading `●`, and returns the rest. `runCopyLastAnswer()` always
+selects-all (a selection can't locate the answer) and cleans with a fixed option
+set that **keeps indentation** (`removeLeadingSpaces: false`, so nested lists/code
+survive) while stripping right-edge padding and trailing blanks. If no answer is
+found, the user's clipboard is left untouched.
 
 **Cleaning pipeline (`clean()`).** A pure function applying steps in a fixed,
 spec-defined order — changing the order changes output:

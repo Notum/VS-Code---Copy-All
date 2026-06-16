@@ -19,22 +19,35 @@ Or, during development, press <kbd>F5</kbd> from the project root to launch an E
 
 ## Usage
 
-Trigger the command in any of these ways:
+There are two commands:
 
-- **Status bar** — click the `$(copy) Copy Terminal` item on the right side of the status bar.
-- **Right-click the terminal tab** — the entry appears in the tab's context menu.
-- **Right-click inside the terminal** — the entry appears in the terminal context menu.
-- **Command palette** — <kbd>Ctrl+Shift+P</kbd> → `Terminal: Copy All From Terminal`.
-- **Keybinding** — no default is shipped, but you can bind one to the `copyAllFromTerminal.copy` command in your `keybindings.json`.
+- **Copy Last Claude Answer** (`copyAllFromTerminal.copyLastAnswer`) — extracts the last [Claude Code](https://claude.com/claude-code) answer from the terminal and copies just that to the clipboard. **This is what the status-bar button now does.**
+- **Copy All From Terminal** (`copyAllFromTerminal.copy`) — the original behavior: copies the whole terminal buffer (or the current selection). Available from the right-click menus and the command palette.
 
-After the command runs, the cleaned terminal contents are on your clipboard and a brief status-bar message shows how many lines were copied.
+Trigger them in any of these ways:
 
-### Selection vs. full buffer
+- **Status bar** — click the `$(copy) Copy Answer` item on the right side of the status bar to copy the last answer.
+- **Right-click the terminal tab** — both entries appear in the tab's context menu.
+- **Right-click inside the terminal** — both entries appear in the terminal context menu.
+- **Command palette** — <kbd>Ctrl+Shift+P</kbd> → `Terminal: Copy Last Claude Answer From Terminal` or `Terminal: Copy All From Terminal`.
+- **Keybinding** — no default is shipped, but you can bind one to either command in your `keybindings.json`.
+
+After a command runs, the result is on your clipboard and a brief status-bar message shows how many lines were copied.
+
+### Copying the last Claude Code answer
+
+Claude Code prints each assistant turn between a `●` bullet (start of the answer) and a `✻ … for …` footer (e.g. `✻ Brewed for 1m 45s`, printed once the turn finishes). The command takes the text from the **last** `●` bullet up to the **last** footer, removes the leading `●` and the trailing footer, and copies the rest. A long, streamed answer leaves many partial re-renders in the scrollback; anchoring on the last bullet/footer pair always lands on the final, complete render.
+
+Unlike the full-buffer copy, this command **preserves indentation** (so nested lists and code blocks survive) while still stripping the terminal's right-edge padding and trailing blank lines. If no answer is found in the buffer, your clipboard is left untouched.
+
+### Selection vs. full buffer (Copy All)
+
+For the **Copy All From Terminal** command:
 
 - If you have **text selected** in the terminal when you trigger the command, only that selection is cleaned and copied. The status bar message ends with `from selection`.
 - If there is **no selection**, the extension falls back to copying the entire scrollback. The status bar message ends with `from full buffer`.
 
-The same five cleaning settings (`trim`, `removeLeadingSpaces`, etc.) apply in both modes.
+The five cleaning settings (`trim`, `removeLeadingSpaces`, etc.) apply in both of these modes. The *Copy Last Claude Answer* command ignores any selection (it needs the whole buffer to find the answer) and uses its own fixed cleaning described above.
 
 ## How it works (and a VS Code API limitation)
 

@@ -33,23 +33,40 @@
         "title": "Copy All From Terminal",
         "category": "Terminal",
         "icon": "$(copy)"
+      },
+      {
+        "command": "copyAllFromTerminal.copyLastAnswer",
+        "title": "Copy Last Claude Answer From Terminal",
+        "category": "Terminal",
+        "icon": "$(copy)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "copyAllFromTerminal.copy"
+        },
+        {
+          "command": "copyAllFromTerminal.copyLastAnswer"
         }
       ],
       "terminal/title/context": [
         {
           "command": "copyAllFromTerminal.copy",
           "group": "3_run"
+        },
+        {
+          "command": "copyAllFromTerminal.copyLastAnswer",
+          "group": "3_run"
         }
       ],
       "terminal/context": [
         {
           "command": "copyAllFromTerminal.copy",
+          "group": "3_edit"
+        },
+        {
+          "command": "copyAllFromTerminal.copyLastAnswer",
           "group": "3_edit"
         }
       ]
