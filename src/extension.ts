@@ -86,9 +86,20 @@ const BULLET = '●'; // ●
 // the line happened to freeze on.
 const FOOTER_RE = /^\s*(?![●❯⎿])[^\sA-Za-z0-9]{1,2}\s+\w+\s+for\s+\d/u;
 
+// Markers that begin a new logical line — these must NOT be merged into the
+// previous line when we un-wrap word-wrapped paragraphs.
+const LIST_MARKER_RE = /^\s*(?:[-*•]\s|\d+[.)]\s)/;
+// Box-drawing characters (U+2500–257F) — Claude Code draws tables with these.
+const BOX_DRAWING_RE = new RegExp('^[\\u2500-\\u257F]');
+
+function startsNewLogicalLine(line: string): boolean {
+    return LIST_MARKER_RE.test(line) || BOX_DRAWING_RE.test(line);
+}
+
 // Pull the last complete Claude Code answer out of a raw terminal buffer.
-// Returns the answer with its leading bullet removed and its trailing footer
-// dropped, or null if no answer can be located. Pure, so it can be unit-tested.
+// Returns the raw answer slice — the bullet line through the last body line,
+// footer excluded — or null if no answer can be located. Pure (unit-testable);
+// formatAnswer() does the cosmetic cleanup.
 export function extractLastAnswer(buffer: string): string | null {
     const lines = buffer.split(/\r?\n/);
 
@@ -123,10 +134,75 @@ export function extractLastAnswer(buffer: string): string | null {
         return null;
     }
 
-    const answer = lines.slice(startIdx, endIdx);
-    // Remove the leading bullet (and the single space after it) from the first line.
-    answer[0] = answer[0].replace(/^\s*●[ \t]?/, '');
-    return answer.join('\n');
+    return lines.slice(startIdx, endIdx).join('\n');
+}
+
+// Turn a raw answer slice (the bullet line plus its word-wrapped body, exactly
+// as it sits in the terminal) into clean, paste-ready text:
+//   • strip the leading ● bullet;
+//   • remove the hanging indent the bullet adds to every continuation/body line
+//     (preserving any deeper, nested indentation);
+//   • rejoin word-wrapped lines so each paragraph / list item is one logical
+//     line — but never merge across list items or table rows;
+//   • drop right-edge padding and trailing blanks, and collapse blank runs.
+// Pure and exported so it can be unit-tested.
+export function formatAnswer(raw: string): string {
+    let lines = raw.split(/\r?\n/);
+
+    // The bullet ("● ") sets the message's hanging indent: every wrapped/body
+    // line is padded by that many columns to align under the bullet's text.
+    const bullet = lines[0]?.match(/^(\s*)●([ \t]?)/);
+    const indent = bullet ? bullet[0].length : 0;
+    if (bullet) {
+        lines[0] = lines[0].slice(indent);
+    }
+
+    // Remove the hanging indent (never more than `indent`, so deeper nesting
+    // survives) and strip the terminal's right-edge padding from every line.
+    const indentRe = new RegExp(`^[ \\t]{0,${indent}}`);
+    lines = lines.map((l, i) =>
+        (i === 0 ? l : l.replace(indentRe, '')).replace(/[ \t]+$/, ''),
+    );
+
+    // Un-wrap: join physical lines that are word-wrap continuations of the line
+    // above. A blank line, a list marker, or a table row starts a fresh line.
+    const out: string[] = [];
+    let current: string | null = null;
+    const flush = () => {
+        if (current !== null) {
+            out.push(current);
+            current = null;
+        }
+    };
+    for (const line of lines) {
+        if (line === '') {
+            flush();
+            out.push('');
+        } else if (current === null || startsNewLogicalLine(line)) {
+            flush();
+            current = line;
+        } else {
+            current += ' ' + line.replace(/^\s+/, '');
+        }
+    }
+    flush();
+
+    // Collapse blank runs, then trim leading/trailing blanks.
+    const collapsed: string[] = [];
+    for (const line of out) {
+        if (line === '' && collapsed[collapsed.length - 1] === '') {
+            continue;
+        }
+        collapsed.push(line);
+    }
+    while (collapsed.length && collapsed[0] === '') {
+        collapsed.shift();
+    }
+    while (collapsed.length && collapsed[collapsed.length - 1] === '') {
+        collapsed.pop();
+    }
+
+    return collapsed.join('\n');
 }
 
 // VS Code's extension API has no method to read the terminal buffer directly
@@ -208,8 +284,9 @@ async function runCopyLastAnswer(): Promise<void> {
         const buffer = await vscode.env.clipboard.readText();
         await vscode.commands.executeCommand('workbench.action.terminal.clearSelection');
 
-        const answer = extractLastAnswer(buffer);
-        if (answer === null) {
+        const raw = extractLastAnswer(buffer);
+        const cleaned = raw === null ? '' : formatAnswer(raw);
+        if (cleaned === '') {
             // Nothing to copy — leave the user's clipboard as it was.
             await vscode.env.clipboard.writeText(previousClipboard ?? '');
             vscode.window.showWarningMessage(
@@ -217,16 +294,6 @@ async function runCopyLastAnswer(): Promise<void> {
             );
             return;
         }
-
-        // Opinionated cleaning for an answer: keep indentation (nested lists, code)
-        // intact, but strip the terminal's right-edge padding and trailing blanks.
-        const cleaned = clean(answer, {
-            trim: true,
-            removeLeadingSpaces: false,
-            removeTrailingSpaces: true,
-            removeTrailingBlankLines: true,
-            collapseBlankLines: false,
-        });
 
         await vscode.env.clipboard.writeText(cleaned);
 

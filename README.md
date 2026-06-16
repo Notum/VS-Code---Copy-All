@@ -36,9 +36,14 @@ After a command runs, the result is on your clipboard and a brief status-bar mes
 
 ### Copying the last Claude Code answer
 
-Claude Code prints each assistant turn between a `●` bullet (start of the answer) and a `✻ … for …` footer (e.g. `✻ Brewed for 1m 45s`, printed once the turn finishes). The command takes the text from the **last** `●` bullet up to the **last** footer, removes the leading `●` and the trailing footer, and copies the rest. A long, streamed answer leaves many partial re-renders in the scrollback; anchoring on the last bullet/footer pair always lands on the final, complete render.
+Claude Code prints each assistant turn between a `●` bullet (start of the answer) and a `✻ … for …` footer (e.g. `✻ Brewed for 1m 45s`, printed once the turn finishes). The command takes the text from the **last** `●` bullet up to the **last** footer, then reformats it for pasting:
 
-Unlike the full-buffer copy, this command **preserves indentation** (so nested lists and code blocks survive) while still stripping the terminal's right-edge padding and trailing blank lines. If no answer is found in the buffer, your clipboard is left untouched.
+- **Removes the leading `●` and the trailing footer.**
+- **Removes the hanging indent.** Claude Code pads every wrapped/continuation line with two spaces to align it under the bullet; that padding is stripped so the whole answer is flush-left. Deeper, intentional nesting (sub-lists) is preserved.
+- **Un-wraps word-wrapped lines.** The terminal hard-wraps long paragraphs across several rows; these are rejoined into one logical line per paragraph. List items (`- `, `1. `) and box-drawing table rows are detected and kept on their own lines, so lists and tables stay intact.
+- **Strips right-edge padding, trailing blank lines, and collapses blank runs.**
+
+A long, streamed answer leaves many partial re-renders in the scrollback; anchoring on the last bullet/footer pair always lands on the final, complete render. If no answer is found in the buffer, your clipboard is left untouched.
 
 ### Selection vs. full buffer (Copy All)
 

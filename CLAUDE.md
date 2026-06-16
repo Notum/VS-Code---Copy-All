@@ -51,20 +51,33 @@ the desired end state, so the previous clipboard value is *not* restored. It is
 stashed in the module-level `previousClipboard` only so a future "restore
 previous clipboard" command could use it — do not remove that capture.
 
-**3. Last-answer extraction (`extractLastAnswer()`).** A pure function (exported
-for testing) that pulls the final Claude Code answer out of a raw buffer. Claude
-Code renders each turn as a `●` bullet (answer start) … `✻ <Verb> for <duration>`
+**3. Last-answer extraction + formatting (`extractLastAnswer()` →
+`formatAnswer()`).** Two pure functions (exported for testing). Claude Code
+renders each turn as a `●` bullet (answer start) … `✻ <Verb> for <duration>`
 footer (e.g. `✻ Brewed for 1m 45s`, printed on completion). A streamed answer
 leaves many partial re-renders in scrollback, so the final, complete answer is
-the slice from the **last** `●` bullet to the **last** footer. The function finds
-the last footer line (`FOOTER_RE` matches the *structure* — leading spinner glyph,
-then `<word> for <digit>` — not a specific glyph, and excludes `●`/`❯`/`⎿` so
-answer content isn't mistaken for a footer), takes the last bullet before it,
-strips the leading `●`, and returns the rest. `runCopyLastAnswer()` always
-selects-all (a selection can't locate the answer) and cleans with a fixed option
-set that **keeps indentation** (`removeLeadingSpaces: false`, so nested lists/code
-survive) while stripping right-edge padding and trailing blanks. If no answer is
-found, the user's clipboard is left untouched.
+the slice from the **last** `●` bullet to the **last** footer.
+
+- `extractLastAnswer()` finds the last footer line (`FOOTER_RE` matches the
+  *structure* — leading spinner glyph, then `<word> for <digit>` — not a specific
+  glyph, and excludes `●`/`❯`/`⎿` so answer content isn't mistaken for a footer),
+  takes the last bullet before it, and returns that **raw** slice (bullet kept,
+  footer excluded), or `null`.
+- `formatAnswer()` turns that raw slice into paste-ready text. It (a) strips the
+  `●` and measures the bullet's width — that width is the **hanging indent**
+  Claude Code pads every continuation/body line with; (b) removes exactly that
+  indent from each line (deeper, nested indentation survives) and strips
+  right-edge padding; (c) **un-wraps** — rejoins word-wrapped physical rows into
+  one logical line per paragraph/list-item, where a blank line, a list/numbered
+  marker (`LIST_MARKER_RE`), or a box-drawing table row (`BOX_DRAWING_RE`) starts
+  a fresh line so prose, lists, and tables aren't merged into each other; (d)
+  collapses blank runs and trims. The un-wrap relies on Claude Code hard-wrapping
+  prose with a 2-space hanging indent (those rows survive as separate lines),
+  whereas xterm rejoins its own soft-wraps when copying.
+
+`runCopyLastAnswer()` always selects-all (a selection can't locate the answer),
+runs `extractLastAnswer` → `formatAnswer`, and writes the result. If nothing is
+found (or it formats to empty), the user's clipboard is left untouched.
 
 **Cleaning pipeline (`clean()`).** A pure function applying steps in a fixed,
 spec-defined order — changing the order changes output:
