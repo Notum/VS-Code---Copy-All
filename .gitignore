@@ -2,6 +2,7 @@ node_modules/
 out/
 *.vsix
 .vscode-test/
+tmp/
 
 # Local secrets / config — never commit
 .mcp.json
